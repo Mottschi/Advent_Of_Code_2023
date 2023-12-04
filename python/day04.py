@@ -27,8 +27,7 @@ def parse(data):
 
 def part_one(data):
 	total_points = 0
-	for index, line in enumerate(data):
-		game = index + 1
+	for line in data:
 		game_points = 0
 		winning_numbers = 0
 		for winning_number in line['winning_numbers']:
@@ -42,7 +41,19 @@ def part_one(data):
 
 
 def part_two(data):
-	pass
+	card_count = {i: 1 for i in range(len(data))}
+	for index, line in enumerate(data):
+		winning_numbers = 0
+		for winning_number in line['winning_numbers']:
+			if winning_number in line['card_numbers']:
+				winning_numbers += 1
+		current_card_count = card_count[index]
+		for i in range(index + 1, index + winning_numbers + 1):
+			if i in card_count:
+				card_count[i] += current_card_count
+
+
+	return sum(card_count.values())
 
 
 if __name__ == '__main__':
