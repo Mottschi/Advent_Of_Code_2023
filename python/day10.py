@@ -17,6 +17,18 @@ LEFT_BOTTOM = '7'
 RIGHT_BOTTOM = 'F'
 GROUND = '.'
 
+REPLACEMENTS = {
+	TOP_LEFT: ['.|.', '-J.', '...'],
+	TOP_RIGHT: ['.|.', '.L-', '...'],
+	TOP_BOTTOM: ['.|.', '.|.', '.|.'],
+	LEFT_RIGHT: ['...','---', '...'],
+	LEFT_BOTTOM: ['...', '-7.', '.|.'],
+	RIGHT_BOTTOM: ['...', '.F-', '.|.'],
+	GROUND: ['...', '...', '...'],
+	'0': ['000', '000', '000'],
+	'I': ['III', 'III', 'III']
+}
+
 class Map:
 	def __init__(self, data):
 		lines = [list(line) for line in data]
@@ -32,6 +44,9 @@ class Map:
 					break
 		self.start = start
 		self.map = lines
+		self.loop_tiles = {self.start}
+		self.solved = False
+		
 
 		row, col = self.start
 		connections = []
@@ -53,6 +68,7 @@ class Map:
 		self.map[row][col] = connection_value
 
 	def solve(self) -> int:
+		self.loop_tiles = set()
 		last_position = self.start
 		row, col = last_position
 		current_pipe = self.map[row][col]
@@ -66,6 +82,7 @@ class Map:
 			next_position = (row, col+1)
 		current_position = next_position
 		step_count = 1
+		self.loop_tiles.add(current_position)
 		while current_position != self.start:
 			row, col = current_position
 			current_pipe = self.map[row][col]
@@ -102,15 +119,107 @@ class Map:
 			
 			last_position = current_position
 			current_position = next_position
+			self.loop_tiles.add(current_position)
 			step_count += 1
-
+		self.solved = True
 		return step_count // 2
+	
+	def upsize(self):
+		upsized_map = []
+		for line in self.map:
+			new_line_top = ''
+			new_line_center = ''
+			new_line_bottom = ''
+			for char in line:
+				top, center, bottom = REPLACEMENTS[char]
+				new_line_top += top
+				new_line_center += center
+				new_line_bottom += bottom
+			upsized_map.append(new_line_top)
+			upsized_map.append(new_line_center)
+			upsized_map.append(new_line_bottom)
+		self.map = [list(line) for line in upsized_map] 
+		row, col = self.start
+		row = row * 3 + 1
+		col = col * 3 + 1
+		self.start = row, col
 
+		if self.solved:
+			self.solve()
+
+
+	def mark_non_pipe_tiles(self):
+		if (not self.solved):
+			self.solve()
+
+		all_map_coords = set()
+
+		for row in range(len(self.map)):
+			for col in range(len(self.map[0])):
+				all_map_coords.add((row, col))
+		
+		for row, col in all_map_coords - self.loop_tiles:
+			self.map[row][col] =  'I' 
+
+	def find_enclosed_tiles(self):
+		tiles_changed = True
+		row_count = len(self.map)
+		col_count = len(self.map[0])
+		marked_tiles = set()
+		while tiles_changed:
+			tiles_changed = False
+			for row in range(0, row_count):
+				for col in range(0, col_count):
+					if (row, col) in self.loop_tiles or (row, col) in marked_tiles:
+						continue
+					if row == 0 or row == row_count-1 or col == 0 or col == col_count - 1:
+						self.map[row][col] = '0'
+						marked_tiles.add((row, col))
+						tiles_changed = True
+						continue
+					neighbors = set()
+					for row_mod in range(-1, 2):
+						for col_mod in range(-1, 2):
+							modified_row = row + row_mod
+							modified_col = col + col_mod
+							if modified_col < 0 or modified_col >= col_count or modified_row < 0 or modified_row >= row_count:
+								continue
+							neighbors.add(self.map[modified_row][modified_col])
+					if '0' in neighbors:
+						self.map[row][col] = '0'
+						marked_tiles.add((row, col))
+						tiles_changed = True
+	
+	def count_i_tiles(self):
+		count = 0
+		for row in self.map:
+			for char in row:
+				if char == 'I':
+					count += 1
+		return count
+	
+	def downsize(self):
+		downsized_map = []
+		row_count = len(self.map)
+		col_count = len(self.map[0])
+		for row in range(1, row_count, 3):
+			line = []
+			for col in range(1, col_count, 3):
+				line.append(self.map[row][col])
+			downsized_map.append(line)
+		row, col = self.start
+		self.start = ((row - 1) // 3, (col - 1) // 3)
+		self.map = downsized_map
+		print(self.start)
+		print(self)
+
+			
 
 	def __str__(self) -> str:
 		result = ''
 		for line in self.map:
 			result += ''.join(line) + '\n'
+		# result += f'\nPipeTiles = {self.loop_tiles}'
 		return result
 
 
@@ -122,11 +231,24 @@ def load():
 
 def part_one(data):
 	my_map = Map(data)
-	return my_map.solve()
+	count = my_map.solve()
+	return count
 	
 
 def part_two(data):
-	pass
+	my_map = Map(data)
+	my_map.solve()
+	my_map.upsize()
+	my_map.mark_non_pipe_tiles()
+	my_map.find_enclosed_tiles()
+	print(my_map)
+	my_map.downsize()
+	return my_map.count_i_tiles()
+	
+
+	
+	
+	
 
 
 if __name__ == '__main__':
